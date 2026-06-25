@@ -3,29 +3,39 @@ name: Deploy to GitHub Pages
 on:
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow one concurrent deployment
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-          cache: 'pip'
+          cache: pip
+
+      - name: Cache Sphinx doctrees
+        uses: actions/cache@v4
+        with:
+          path: _build/.doctrees
+          key: sphinx-${{ runner.os }}-${{ hashFiles('**/*.rst', '**/*.py', 'requirements.txt') }}
+          restore-keys: |
+            sphinx-${{ runner.os }}-
 
       - name: Install dependencies
         run: |
@@ -34,19 +44,21 @@ jobs:
 
       - name: Build HTML documentation
         run: |
-          make html
+          make SPHINXOPTS="-j auto" html
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _build/html
 
   deploy:
+    runs-on: ubuntu-24.04
+    needs: build
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-24.04
-    needs: build
+
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
